@@ -267,6 +267,75 @@ class MockBackend(LLMBackend):
         return f"[mock vision] described {len(images_b64)} image(s) for prompt: {prompt}"
 
 
+class HybridBackend(LLMBackend):
+    """Online-first, local-fallback brain that auto-switches per message.
+
+    When the internet is reachable it uses the online backend (faster, smarter).
+    When offline, it falls back to the local backend so the assistant keeps
+    working. The choice is made fresh on every call, so it adapts as your
+    connection comes and goes.
+    """
+
+    def __init__(
+        self,
+        online_backend: Optional[LLMBackend],
+        local_backend: Optional[LLMBackend],
+        online_check: Callable[[], bool] = is_online,
+    ) -> None:
+        self.online_backend = online_backend
+        self.local_backend = local_backend
+        self._online_check = online_check
+        self.online = bool(online_backend)
+        self.supports_streaming = bool(
+            (online_backend and online_backend.supports_streaming)
+            or (local_backend and local_backend.supports_streaming)
+        )
+        self.supports_vision = bool(
+            (online_backend and online_backend.supports_vision)
+            or (local_backend and local_backend.supports_vision)
+        )
+        on = online_backend.name if online_backend else "none"
+        loc = local_backend.name if local_backend else "none"
+        self.name = f"hybrid[online={on} | offline={loc}]"
+
+    def _pick(self) -> LLMBackend:
+        """Pick the backend to use right now."""
+        if self.online_backend is not None and self._online_check():
+            return self.online_backend
+        if self.local_backend is not None:
+            return self.local_backend
+        if self.online_backend is not None:
+            # Online configured but we appear offline; try it anyway (it will
+            # surface a clear error if it truly cannot connect).
+            return self.online_backend
+        raise LLMError("Hybrid backend has no usable brain configured.")
+
+    def chat(self, messages: List[Message], temperature: float = 0.7) -> str:
+        return self._pick().chat(messages, temperature)
+
+    def chat_stream(
+        self, messages: List[Message], temperature: float = 0.7
+    ) -> Iterator[str]:
+        backend = self._pick()
+        if backend.supports_streaming:
+            yield from backend.chat_stream(messages, temperature)
+        else:
+            yield backend.chat(messages, temperature)
+
+    def vision(self, prompt: str, images_b64: List[str], mime: str = "image/png") -> str:
+        # Prefer whichever picked backend can actually see.
+        backend = self._pick()
+        if not backend.supports_vision:
+            other = (
+                self.online_backend
+                if backend is self.local_backend
+                else self.local_backend
+            )
+            if other is not None and other.supports_vision:
+                backend = other
+        return backend.vision(prompt, images_b64, mime=mime)
+
+
 def select_backend(config: Config) -> LLMBackend:
     """Choose a backend according to config and current connectivity."""
     pref = config.backend
@@ -308,6 +377,17 @@ def select_backend(config: Config) -> LLMBackend:
         if not is_online():
             raise LLMError("Online backend requested but the machine appears offline.")
         return make_online()
+
+    if pref == "hybrid":
+        online_b = make_online() if config.online_api_key else None
+        local_b = make_local() if local_ready else None
+        if online_b is None and local_b is None:
+            raise LLMError(
+                "Hybrid mode needs at least one brain.\n"
+                "- Online: set PERSONAL_AI_ONLINE_API_KEY (or OPENAI_API_KEY).\n"
+                f"- Offline: run Ollama and `ollama pull {config.local_model}`."
+            )
+        return HybridBackend(online_b, local_b)
 
     # auto: local first (offline-friendly), then online.
     if local_ready:
