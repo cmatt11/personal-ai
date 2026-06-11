@@ -7,6 +7,7 @@ name = "personal-ai"
 version = "1.0.0"
 description = "A local-first, offline-capable personal AI assistant with memory and tools."
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.9"
 # Zero runtime dependencies: the whole assistant runs on the Python standard library.
 dependencies = []
