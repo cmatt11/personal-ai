@@ -691,5 +691,49 @@ class TestSelfExtend(unittest.TestCase):
         self.assertTrue(self.registry.has("doubler"))
 
 
+class TestHybridBackend(unittest.TestCase):
+    def _mk(self, online_up):
+        from personal_ai.llm import HybridBackend, MockBackend
+
+        online = MockBackend(scripted=["ONLINE reply"])
+        local = MockBackend(scripted=["LOCAL reply"])
+        online.name = "online:test"
+        local.name = "local:test"
+        return HybridBackend(online, local, online_check=lambda: online_up)
+
+    def test_uses_online_when_connected(self):
+        h = self._mk(online_up=True)
+        self.assertEqual(h.chat([{"role": "user", "content": "hi"}]), "ONLINE reply")
+
+    def test_falls_back_to_local_when_offline(self):
+        h = self._mk(online_up=False)
+        self.assertEqual(h.chat([{"role": "user", "content": "hi"}]), "LOCAL reply")
+
+    def test_local_only_works_offline(self):
+        from personal_ai.llm import HybridBackend, MockBackend
+
+        local = MockBackend(scripted=["LOCAL only"])
+        h = HybridBackend(None, local, online_check=lambda: False)
+        self.assertEqual(h.chat([{"role": "user", "content": "hi"}]), "LOCAL only")
+
+    def test_streaming_switches_too(self):
+        h = self._mk(online_up=False)
+        tokens = list(h.chat_stream([{"role": "user", "content": "hi"}]))
+        self.assertIn("LOCAL", "".join(tokens))
+
+    def test_select_backend_hybrid_mode(self):
+        from personal_ai.config import Config
+        from personal_ai.llm import HybridBackend, select_backend
+
+        os.environ["PERSONAL_AI_BACKEND"] = "hybrid"
+        os.environ["PERSONAL_AI_ONLINE_API_KEY"] = "sk-test"
+        try:
+            backend = select_backend(Config())
+            self.assertIsInstance(backend, HybridBackend)
+        finally:
+            os.environ.pop("PERSONAL_AI_BACKEND", None)
+            os.environ.pop("PERSONAL_AI_ONLINE_API_KEY", None)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -123,6 +123,27 @@ python run.py
 
 Any OpenAI-compatible endpoint works. Point `PERSONAL_AI_ONLINE_BASE_URL` at it and set the model name. See `.env.example` for all options.
 
+## Hybrid mode: online when connected, offline when not
+
+Set the backend to `hybrid` to get both. It uses the online model when you have internet (fast and smart) and automatically falls back to a local model when you are offline. The choice is made fresh on every message, so it adapts as your connection comes and goes.
+
+```bash
+export PERSONAL_AI_BACKEND=hybrid
+export PERSONAL_AI_ONLINE_API_KEY=sk-your-key      # the online brain
+ollama pull qwen2.5:0.5b                            # a small offline fallback
+export PERSONAL_AI_LOCAL_MODEL=qwen2.5:0.5b
+python run.py
+```
+
+Pick a local fallback that fits your machine: a tiny model like `qwen2.5:0.5b` for low-RAM devices, or a larger one on a strong phone or PC. Your memory, profile, and files stay local in every mode.
+
+### Backend options
+
+- `auto` (default): local if available, otherwise online.
+- `local`: local Ollama only.
+- `online`: cloud model only.
+- `hybrid`: online when connected, local fallback when offline.
+
 ### No model at all?
 
 Memory and tools still load. The assistant needs at least one brain (local Ollama or an online key) to chat. Even without an embedding model, memory falls back to a built-in pure-Python embedding so recall keeps working at lower quality.
