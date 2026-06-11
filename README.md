@@ -312,6 +312,16 @@ python -m unittest discover -s tests -v
 
 The tests cover the calculator, embeddings, memory and semantic recall, JSON parsing, sandboxed file access, and the full agent loop driven by a mock brain. They run fully offline.
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the
+zero-dependency rule, how to add tools and integrations, and the pull request
+process.
+
+## License
+
+Released under the [MIT License](LICENSE).
+
 ## Privacy and safety notes
 
 - File tools are sandboxed to the workspace folder and cannot escape it.
