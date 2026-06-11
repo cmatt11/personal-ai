@@ -11,6 +11,12 @@ import urllib.request
 from typing import Any, Dict, Iterator, Optional
 
 
+# Some API gateways (for example Cloudflare in front of Groq) reject the
+# default Python-urllib signature with a 403/1010 error. A normal User-Agent
+# avoids that block.
+USER_AGENT = "Mozilla/5.0 (compatible; personal-ai/1.0; +https://github.com/cmatt11/personal-ai)"
+
+
 class HttpError(Exception):
     """Raised when an HTTP request fails."""
 
@@ -27,7 +33,7 @@ def post_json(
 ) -> Dict[str, Any]:
     """POST a JSON body and parse a JSON response."""
     data = json.dumps(payload).encode("utf-8")
-    req_headers = {"Content-Type": "application/json"}
+    req_headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
     if headers:
         req_headers.update(headers)
     req = urllib.request.Request(url, data=data, headers=req_headers, method="POST")
@@ -52,7 +58,7 @@ def get_text(
     timeout: int = 30,
 ) -> str:
     """GET a URL and return the raw text body."""
-    req_headers = {"User-Agent": "personal-ai/1.0 (+local)"}
+    req_headers = {"User-Agent": USER_AGENT}
     if headers:
         req_headers.update(headers)
     req = urllib.request.Request(url, headers=req_headers, method="GET")
@@ -84,7 +90,7 @@ def post_stream(
 ) -> Iterator[str]:
     """POST a JSON body and yield response lines as they arrive (for streaming)."""
     data = json.dumps(payload).encode("utf-8")
-    req_headers = {"Content-Type": "application/json"}
+    req_headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
     if headers:
         req_headers.update(headers)
     req = urllib.request.Request(url, data=data, headers=req_headers, method="POST")
