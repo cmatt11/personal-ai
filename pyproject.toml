@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-ai"
+version = "1.0.0"
+description = "A local-first, offline-capable personal AI assistant with memory and tools."
+readme = "README.md"
+requires-python = ">=3.9"
+# Zero runtime dependencies: the whole assistant runs on the Python standard library.
+dependencies = []
+
+[project.scripts]
+personal-ai = "personal_ai.cli:run"
+
+[tool.setuptools.packages.find]
+include = ["personal_ai*"]
